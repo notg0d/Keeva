@@ -1,6 +1,6 @@
 # Keeva
 
-Client-encrypted credential vault using Sui Mainnet, Tatum JSON-RPC, and Walrus Memory. Functional React components are included; the visual design is intentionally provisional pending the design reference.
+Client-encrypted credential vault using Sui Mainnet, Tatum JSON-RPC, and Walrus Memory, with a responsive dark workspace and modular bento dashboards.
 
 ## Run
 
@@ -43,6 +43,12 @@ Browser-entered public settings persist in localStorage. Secrets are session-onl
 - `src/state/`: wallet-bound session lifecycle and ephemeral decrypted state.
 - `src/views/`: inventory, item composer, security audit, and blob explorer.
 
+### Interface and motion
+
+The interface uses self-hosted Inter and Geist Mono, zinc surfaces, and emerald/cyan/violet status accents. Framer Motion page transitions use spring stiffness 300 and damping 30. The settings drawer preserves native modal focus behavior, and clipboard checks follow successful writes. Reduced-motion preferences disable travel, scaling, shimmer, and status pulses. Locking immediately unmounts the decrypted workspace.
+
+Dashboard values come from the current vault snapshot and real gateway responses. Connection indicators pulse only for fresh successful readings; disconnected services show explicit setup states. See [design research and decisions](docs/design-direction.md) for the reviewed sources and their application.
+
 ## Encryption and indexing protocol
 
 1. A root header carries a random 32-byte salt, a vault identifier, wallet/account binding, KDF parameters, and an authenticated key check. The minimum PBKDF2 work factor is 600,000 SHA-256 iterations.
@@ -51,7 +57,7 @@ Browser-entered public settings persist in localStorage. Secrets are session-onl
 4. `rememberAndWait()` uploads only the resulting ciphertext envelope. MemWal adds its own SEAL/storage processing. No credential text is passed to its embedding or analysis endpoints.
 5. Each immutable revision occupies a unique opaque namespace beneath `<root>.r.<uuid>`. This avoids depending on a capped similarity search to enumerate or select current revisions. The root namespace contains exactly one header.
 6. `listMemories()` is paginated through `has_more`. Each discovered record is retrieved with `recall({ query: constant, topK: 15, namespace })` and matched to its exact blob ID. Decrypted local metadata is searched for user-supplied terms; those terms never leave the browser.
-7. Credential writes and their audit events share one authenticated blob. Failed or uncertain writes retain the encrypted request and idempotency identifier in localStorage. The application has an explicit resume action and never automatically retries a paid mutation with fresh ciphertext.
+7. Credential writes and their audit events share one authenticated blob. Failed or uncertain writes retain the encrypted request and idempotency identifier in localStorage. The application has an explicit resume action and never automatically retries a paid mutation with fresh ciphertext. Browser Web Locks serialize writes across same-origin tabs; a secure browser supporting Web Locks is required.
 8. Revision ancestry is validated before projecting current credentials. Concurrent heads stay visible and block overwrites. Cross-device concurrency is detected rather than arbitrated by an untrusted timestamp.
 
 ## Network and verification boundaries

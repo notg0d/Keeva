@@ -96,6 +96,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   };
 
   const open = async (material: UnlockMaterial, initialize: boolean) => {
+    if (pending.current) return;
     const version = generation.current;
     const result = await execute(async (current) => {
       const sign = async (message: Uint8Array<ArrayBuffer>) => {
@@ -105,6 +106,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return initialize ? current.initialize(material, sign) : current.unlock(material, sign);
     }, false);
     if (version !== generation.current) return;
+    if (document.visibilityState !== 'visible') { lock(); return; }
     if (result && session.current) { setSnapshot(result); setService(session.current); }
     else if (!snapshot) { session.current?.lock(); session.current = null; }
   };

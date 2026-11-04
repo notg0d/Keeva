@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { Settings2, X } from 'lucide-react';
+import { ArrowRight, LoaderCircle, LockKeyhole, Settings2, X } from 'lucide-react';
+import { spring } from './Motion';
 import { configSchema, hasProtectedGateway, saveVaultConfig, unlockGateway, type VaultConfig } from '../config/vaultConfig';
 import { errorMessage } from '../lib/errors';
 import { testVaultConnectivity } from '../services/memwalGateway';
@@ -27,26 +29,37 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+  const [closing, setClosing] = useState(false);
+  const reduce = useReducedMotion();
+  const close = () => setClosing(true);
 
-  useEffect(() => { dialog.current?.showModal(); }, []);
+  useEffect(() => {
+    const element = dialog.current;
+    const previousFocus = document.activeElement;
+    element?.showModal();
+    return () => { element?.close(); if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus(); };
+  }, []);
   const run = async (operation: () => Promise<void>) => {
     setBusy(true); setError(''); setStatus('');
     try { await operation(); } catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
   };
   const validate = (): VaultConfig | null => {
-    const parsed = configSchema.safeParse(draft);
+    const parsed = configSchema.safeParse({ ...draft, auditEventTypes: draft.auditEventTypes.map((type) => type.trim()).filter(Boolean) });
     if (!parsed.success) { setError(parsed.error.issues.map((issue) => issue.message).join(' ')); return null; }
     return parsed.data;
   };
 
-  return <dialog ref={dialog} className="settings-dialog" aria-labelledby="settings-title" onCancel={(event) => { event.preventDefault(); if (!busy) onClose(); }}>
-    <div className="section-heading"><h2 id="settings-title"><Settings2 size={20} />Vault &amp; Gateway Settings</h2>
-      <button type="button" aria-label="Close settings" disabled={busy} onClick={onClose}><X size={18} /></button></div>
+  return <motion.dialog ref={dialog} className="settings-dialog" data-closing={closing} aria-labelledby="settings-title"
+    initial={{ x: reduce ? 0 : '100%', opacity: reduce ? 0 : 1 }} animate={{ x: closing && !reduce ? '100%' : 0, opacity: closing ? 0 : 1 }}
+    transition={reduce ? { duration: 0 } : spring} onAnimationComplete={() => { if (closing) onClose(); }}
+    onCancel={(event) => { event.preventDefault(); if (!busy) close(); }}>
+    <div className="drawer-heading"><span className="icon-tile"><Settings2 size={20} /></span><div><span className="eyebrow">WORKSPACE CONFIGURATION</span><h2 id="settings-title">Vault &amp; Gateway Settings</h2></div>
+      <button className="icon-button" type="button" aria-label="Close settings" disabled={busy} onClick={close}><X size={18} /></button></div>
     <p className="muted">Configure your Mainnet account and its authorized delegate. Vault encryption keys remain in the browser.</p>
     <form onSubmit={(event) => { event.preventDefault(); const parsed = validate(); if (!parsed) return;
       void run(async () => { const saved = await saveVaultConfig(parsed, remember ? devicePassphrase : undefined);
-        lock(); setConfig(saved); setDevicePassphrase(''); onClose(); }); }}>
+        lock(); setConfig(saved); setDevicePassphrase(''); close(); }); }}>
       <fieldset disabled={busy}>
         {hasProtectedGateway() && <section className="inset">
           <label>Device protection passphrase<input type="password" autoComplete="off" value={devicePassphrase} onChange={(event) => setDevicePassphrase(event.target.value)} /></label>
@@ -54,15 +67,18 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
             const secrets = await unlockGateway(devicePassphrase); setDraft({ ...draft, ...secrets }); setStatus('Saved gateway credentials decrypted locally.');
           })}>Unlock saved gateway credentials</button>
         </section>}
-        {fields.map(({ key, label, secret }) => <label key={key}>{label}
+        <div className="form-section-label">01 <span>Gateway connection</span></div>
+        {fields.map(({ key, label, secret }) => <label key={key}><span className="inline-icon">{label}{secret && <LockKeyhole size={12} className="muted" />}</span>
           <input type={secret ? 'password' : key === 'memwalServerUrl' ? 'url' : 'text'} autoComplete="off" spellCheck={false}
             value={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value.trim() })} required />
         </label>)}
+        <div className="form-section-label">02 <span>Session &amp; audit preferences</span></div>
         <label>Automatic lock after inactivity · minutes<input type="number" min={1} max={60} value={draft.autoLockMinutes}
           onChange={(event) => setDraft({ ...draft, autoLockMinutes: Number(event.target.value) })} /></label>
         <label>Recognized audit event types · one per line<textarea rows={3} value={draft.auditEventTypes.join('\n')}
-          onChange={(event) => setDraft({ ...draft, auditEventTypes: event.target.value.split('\n').filter(Boolean) })} spellCheck={false} /></label>
+          onChange={(event) => setDraft({ ...draft, auditEventTypes: event.target.value.split('\n') })} spellCheck={false} /></label>
         <p className="muted">Use full package::module::Event types from your deployed contracts. Transaction signatures and event recognition are reported separately.</p>
+        <div className="form-section-label">03 <span>Device protection</span></div>
         <label className="check-label"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />Encrypt gateway credentials on this device</label>
         {remember && <label>Device protection passphrase · at least 14 characters<input type="password" autoComplete="new-password" minLength={14}
           required value={devicePassphrase} onChange={(event) => setDevicePassphrase(event.target.value)} /></label>}
@@ -71,11 +87,11 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
           const parsed = validate(); if (!parsed) return;
           void run(async () => { const result = await testVaultConnectivity(parsed, account?.address);
             setStatus(`Mainnet verified · epoch ${result.telemetry.epoch} · Walrus ${result.health.status} · delegate authorized for ${result.owner}`); });
-        }}>Test Vault Connectivity</button><button className="primary" type="submit">Save configuration</button></div>
+        }}>Test Vault Connectivity</button><button className="primary" type="submit">Save configuration<ArrowRight size={15} /></button></div>
       </fieldset>
     </form>
-    {busy && <p role="status">Processing gateway configuration…</p>}
+    {busy && <p className="loading-state" role="status"><LoaderCircle size={16} className="spin" />Processing gateway configuration…</p>}
     {error && <p className="error" role="alert">{error}</p>}
     {status && <p className="success wrap" role="status">{status}</p>}
-  </dialog>;
+  </motion.dialog>;
 }

@@ -104,6 +104,7 @@ export class VaultStorageService {
     invariant(headers.length <= 1, 'HEADER_CONFLICT', 'This namespace contains multiple vault headers. Resolve the storage conflict before unlocking.');
     if (!headers.length) {
       invariant(inventory.length === 0, 'HEADER_MISSING', 'The vault header is missing while encrypted records remain. Restore the index.');
+      checkContinuity(this.scope, '', []);
       return null;
     }
     const item = headers[0]!;

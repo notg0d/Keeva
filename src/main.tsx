@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import { SuiClientProvider, WalletProvider, lightTheme, type Theme } from '@mysten/dapp-kit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@mysten/dapp-kit/dist/index.css';
+import '@fontsource-variable/inter';
+import '@fontsource-variable/geist-mono';
 import './styles.css';
 import App from './App';
 import { ConfigProvider, useConfig } from './state/ConfigContext';
