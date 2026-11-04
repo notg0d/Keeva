@@ -52,6 +52,7 @@ describe('authenticated vault cryptography', () => {
     transaction.setGasBudget(10_000_000);
     transaction.setGasPrice(1000);
     transaction.setGasPayment([]);
+    transaction.setExpiration({ None: true });
     const bytes = await transaction.build();
     const signed = await wallet.signTransaction(bytes);
     expect(TransactionDataBuilder.getDigestFromBytes(bytes)).toBe(await transaction.getDigest());

@@ -46,6 +46,20 @@ export class VaultStorageService {
   lock(): void { this.closed = true; this.key = undefined; this.header = undefined; this.memwal.destroy(); }
   hasPendingWrite(): boolean { return localStorage.getItem(`keeva.pending:${this.scope}`) !== null; }
 
+  private async withWriteLock<T>(operation: () => Promise<T>): Promise<T> {
+    this.active();
+    invariant(!this.writing, 'WRITE_RUNNING', 'A vault write is already running.');
+    invariant(navigator.locks, 'WEB_LOCKS_REQUIRED', 'This browser must support secure Web Locks for vault writes.');
+    this.writing = true;
+    try {
+      return await navigator.locks.request(`keeva-write:${this.scope}`, { ifAvailable: true }, async (lock) => {
+        invariant(lock, 'OTHER_TAB_WRITING', 'Another tab is writing to this vault. Wait for that operation to finish.');
+        this.active();
+        return operation();
+      });
+    } finally { this.writing = false; }
+  }
+
   private async authorize(): Promise<void> {
     await Promise.all([assertRelayerMainnet(this.config), this.rpc.assertMainnet(), verifyDelegate(this.config, this.memwal, this.wallet)]);
     this.active();
@@ -131,6 +145,10 @@ export class VaultStorageService {
   }
 
   async initialize(material: UnlockMaterial, sign: WalletSigner): Promise<VaultSnapshot> {
+    return this.withWriteLock(() => this.initializeInner(material, sign));
+  }
+
+  private async initializeInner(material: UnlockMaterial, sign: WalletSigner): Promise<VaultSnapshot> {
     invariant(await this.inspect() === null, 'VAULT_EXISTS', 'A vault already exists in this namespace. Unlock it to continue.');
     if (material.method === 'passphrase') invariant(material.passphrase.length >= 14, 'PASSPHRASE_SHORT', 'Use a master passphrase of at least 14 characters.');
     const pending = this.readPending();
@@ -239,10 +257,9 @@ export class VaultStorageService {
   }
 
   async storeEncryptedCredential(input: CredentialInput, edit?: { id: string; revision: string }): Promise<VaultSnapshot> {
-    const key = this.unlocked();
-    invariant(!this.writing && !this.hasPendingWrite(), 'PENDING_WRITE', 'Finish the pending write before creating another revision.');
-    this.writing = true;
-    try {
+    return this.withWriteLock(async () => {
+      const key = this.unlocked();
+      invariant(!this.hasPendingWrite(), 'PENDING_WRITE', 'Finish the pending write before creating another revision.');
       const payload = credentialInputSchema.parse(input);
       const current = await this.synchronize();
       const previous = edit ? current.credentials.find((item) => item.id === edit.id && item.revision === edit.revision) : undefined;
@@ -260,20 +277,19 @@ export class VaultStorageService {
       } };
       await this.writeRecord(revision, body);
       return await this.synchronize();
-    } finally { this.writing = false; }
+    });
   }
 
   async verifyAndRecordTransaction(digest: string) {
-    this.unlocked();
-    invariant(!this.writing && !this.hasPendingWrite(), 'PENDING_WRITE', 'Finish the pending write first.');
-    this.writing = true;
-    try {
+    return this.withWriteLock(async () => {
+      this.unlocked();
+      invariant(!this.hasPendingWrite(), 'PENDING_WRITE', 'Finish the pending write first.');
       const verification = await this.rpc.verifyVaultAuditTransaction(digest, { wallet: this.wallet, eventTypes: this.config.auditEventTypes });
       const audit = auditEventSchema.parse({ id: crypto.randomUUID(), action: 'transaction.checked', occurredAt: new Date().toISOString(),
         wallet: this.wallet.toLowerCase(), agentId: this.config.memwalAgentId.replace(/^0x/, '').toLowerCase(), transactionDigest: digest });
       await this.writeRecord(crypto.randomUUID(), { type: 'audit', audit });
       return verification;
-    } finally { this.writing = false; }
+    });
   }
 
   private async writeRecord(recordId: string, body: RecordBody): Promise<void> {
@@ -317,10 +333,8 @@ export class VaultStorageService {
   }
 
   async retryPendingWrite(): Promise<VaultSnapshot> {
-    const key = this.unlocked();
-    invariant(!this.writing, 'WRITE_RUNNING', 'A vault write is already running.');
-    this.writing = true;
-    try {
+    return this.withWriteLock(async () => {
+      const key = this.unlocked();
       const pending = this.readPending();
       invariant(pending, 'NO_PENDING_WRITE', 'There is no pending encrypted write.');
       if (pending.namespace === this.config.memwalNamespace) {
@@ -336,7 +350,7 @@ export class VaultStorageService {
       pinCommittedBlob(this.scope, this.headerBlobId!, result.blob_id);
       this.clearPending();
       return await this.synchronize();
-    } finally { this.writing = false; }
+    });
   }
 
   async restoreVaultIndex() {
