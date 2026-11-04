@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../state/useReducedMotion';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { ArrowRight, LoaderCircle, LockKeyhole, Settings2, X } from 'lucide-react';
 import { spring } from './Motion';
 import { configSchema, hasProtectedGateway, saveVaultConfig, unlockGateway, type VaultConfig } from '../config/vaultConfig';
 import { errorMessage } from '../lib/errors';
 import { testVaultConnectivity } from '../services/memwalGateway';
+import { TatumSuiClient } from '../services/tatumSuiClient';
 import { useConfig } from '../state/ConfigContext';
 import { useVault } from '../state/VaultContext';
 
-const fields: Array<{ key: keyof Pick<VaultConfig, 'tatumApiKey' | 'memwalPrivateKey' | 'memwalAccountId' | 'memwalAgentId' | 'memwalServerUrl' | 'memwalNamespace'>; label: string; secret?: boolean }> = [
+const fields: Array<{ key: keyof Pick<VaultConfig, 'tatumRpcUrl' | 'tatumApiKey' | 'memwalPrivateKey' | 'memwalAccountId' | 'memwalAgentId' | 'memwalServerUrl' | 'memwalNamespace'>; label: string; secret?: boolean }> = [
+  { key: 'tatumRpcUrl', label: 'Tatum endpoint URL · Sui Mainnet' },
   { key: 'tatumApiKey', label: 'Tatum API key', secret: true },
   { key: 'memwalPrivateKey', label: 'MemWal delegate private key', secret: true },
   { key: 'memwalAccountId', label: 'Walrus Memory Account Object ID' },
@@ -50,7 +53,7 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
     return parsed.data;
   };
 
-  return <motion.dialog ref={dialog} className="settings-dialog" data-closing={closing} aria-labelledby="settings-title"
+  return <motion.dialog ref={dialog} className="settings-dialog" data-lenis-prevent data-closing={closing} aria-labelledby="settings-title"
     initial={{ x: reduce ? 0 : '100%', opacity: reduce ? 0 : 1 }} animate={{ x: closing && !reduce ? '100%' : 0, opacity: closing ? 0 : 1 }}
     transition={reduce ? { duration: 0 } : spring} onAnimationComplete={() => { if (closing) onClose(); }}
     onCancel={(event) => { event.preventDefault(); if (!busy) close(); }}>
@@ -68,10 +71,29 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
           })}>Unlock saved gateway credentials</button>
         </section>}
         <div className="form-section-label">01 <span>Gateway connection</span></div>
+        <label>Tatum interface<select value={draft.tatumApiType} onChange={(event) => setDraft({ ...draft, tatumApiType: event.target.value as VaultConfig['tatumApiType'] })}>
+          <option value="graphql">GraphQL</option><option value="json-rpc">JSON-RPC</option>
+        </select></label>
+        <p className="muted">{draft.tatumApiType === 'graphql'
+          ? 'Enter the full Sui Mainnet GraphQL endpoint URL, including /graphql when provided by Tatum, and your API key.'
+          : 'Enter a Sui Mainnet endpoint that advertises JSON-RPC methods, and your API key.'}</p>
         {fields.map(({ key, label, secret }) => <label key={key}><span className="inline-icon">{label}{secret && <LockKeyhole size={12} className="muted" />}</span>
-          <input type={secret ? 'password' : key === 'memwalServerUrl' ? 'url' : 'text'} autoComplete="off" spellCheck={false}
+          <input type={secret ? 'password' : key === 'memwalServerUrl' || key === 'tatumRpcUrl' ? 'url' : 'text'} autoComplete="off" spellCheck={false}
             value={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value.trim() })} required />
         </label>)}
+        <p className="muted">Tatum requests run through Keeva’s backend using this endpoint and key. The key is used per request and is not stored on the server.</p>
+        <button type="button" onClick={() => {
+          const parsed = configSchema.pick({ tatumApiType: true, tatumRpcUrl: true, tatumApiKey: true }).safeParse({
+            tatumApiType: draft.tatumApiType, tatumRpcUrl: draft.tatumRpcUrl, tatumApiKey: draft.tatumApiKey,
+          });
+          if (!parsed.success) { setError(parsed.error.issues.map((issue) => issue.message).join(' ')); return; }
+          void run(async () => {
+            const { tatumApiKey, tatumRpcUrl, tatumApiType } = parsed.data;
+            const telemetry = await new TatumSuiClient(tatumApiKey, tatumRpcUrl, tatumApiType).getNetworkTelemetry();
+            if (telemetry.endpoint) setDraft((current) => ({ ...current, tatumRpcUrl: telemetry.endpoint! }));
+            setStatus(`Tatum backend connected · Sui Mainnet · epoch ${telemetry.epoch} · checkpoint ${telemetry.checkpointHeight}. Using ${telemetry.endpoint ?? tatumRpcUrl}. Save configuration to apply these settings.`);
+          });
+        }}>Test Tatum connection</button>
         <div className="form-section-label">02 <span>Session &amp; audit preferences</span></div>
         <label>Automatic lock after inactivity · minutes<input type="number" min={1} max={60} value={draft.autoLockMinutes}
           onChange={(event) => setDraft({ ...draft, autoLockMinutes: Number(event.target.value) })} /></label>
@@ -85,8 +107,9 @@ export default function SettingsDrawer({ onClose }: { onClose: () => void }) {
         <p className="muted">Public settings are saved locally. Gateway secrets stay in this session unless device encryption is enabled. The device passphrase is separate from the master vault passphrase.</p>
         <div className="actions"><button type="button" onClick={() => {
           const parsed = validate(); if (!parsed) return;
-          void run(async () => { const result = await testVaultConnectivity(parsed, account?.address);
-            setStatus(`Mainnet verified · epoch ${result.telemetry.epoch} · Walrus ${result.health.status} · delegate authorized for ${result.owner}`); });
+           void run(async () => { const result = await testVaultConnectivity(parsed, account?.address);
+            if (result.telemetry.endpoint) setDraft((current) => ({ ...current, tatumRpcUrl: result.telemetry.endpoint! }));
+            setStatus(`Mainnet verified · epoch ${result.telemetry.epoch} · Walrus ${result.health.status} · delegate authorized for ${result.owner}. Save configuration to apply these settings.`); });
         }}>Test Vault Connectivity</button><button className="primary" type="submit">Save configuration<ArrowRight size={15} /></button></div>
       </fieldset>
     </form>

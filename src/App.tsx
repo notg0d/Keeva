@@ -5,6 +5,7 @@ import Initialization from './components/Initialization';
 import SettingsDrawer from './components/SettingsDrawer';
 import WorkspaceShell, { type View } from './components/WorkspaceShell';
 import { PageTransition } from './components/Motion';
+import SmoothScroll from './components/SmoothScroll';
 import { useVault } from './state/VaultContext';
 import type { Credential } from './types/vault';
 
@@ -38,8 +39,9 @@ export default function App() {
   const { snapshot } = useVault();
   const [settings, setSettings] = useState(false);
   return <MotionConfig reducedMotion="user">
+    <SmoothScroll screen={snapshot ? 'vault' : 'login'} />
     {snapshot ? <VaultWorkspace openSettings={() => setSettings(true)} /> :
-      <WorkspaceShell openSettings={() => setSettings(true)}><Initialization openSettings={() => setSettings(true)} /></WorkspaceShell>}
+      <Initialization openSettings={() => setSettings(true)} />}
     {settings && <SettingsDrawer onClose={() => setSettings(false)} />}
   </MotionConfig>;
 }

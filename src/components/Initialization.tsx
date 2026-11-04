@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
-import { ArrowRight, Check, Database, Fingerprint, KeyRound, LoaderCircle, LockKeyhole, Settings2, ShieldCheck, Wallet } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, Database, KeyRound, LoaderCircle, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useVault } from '../state/VaultContext';
 import { useConfig } from '../state/ConfigContext';
 import { configSchema } from '../config/vaultConfig';
 import NetworkCards from './NetworkCards';
-import { PageTransition } from './Motion';
+import Brand from './Brand';
+import HeroTrail from './HeroTrail';
 
 export default function Initialization({ openSettings }: { openSettings: () => void }) {
-  const { ready, inspect, header, busy, open, execute, setMessage } = useVault();
+  const { ready, inspect, header, busy, open, execute, setMessage, error: vaultError, message } = useVault();
+  const hero = useRef<HTMLElement>(null);
   const account = useCurrentAccount();
   const { config } = useConfig();
   const configured = configSchema.safeParse(config).success;
@@ -18,26 +20,37 @@ export default function Initialization({ openSettings }: { openSettings: () => v
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState('');
   useEffect(() => { if (header) setMethod(header.kdf.method); }, [header]);
-  return <PageTransition><section className="initialization">
-    <div className="page-heading"><div><span className="eyebrow">YOUR PRIVATE WORKSPACE</span><h1>Secure Vault Initialization</h1>
-      <p className="muted">A little setup. A space that’s entirely yours.</p></div><span className="badge"><LockKeyhole size={13} />Vault locked</span></div>
-    {!window.isSecureContext && <p className="error" role="alert">Open Keeva over HTTPS or localhost to enable browser cryptography and protected clipboard access.</p>}
-    <div className="bento-grid setup-grid">
-    <article className="panel privacy-card">
-      <div className="card-topline"><span className="eyebrow secure">PRIVATE BY DESIGN</span><Fingerprint size={20} className="secure" /></div>
-      <h2>Your digital life.<br /><span>Under your key.</span></h2>
-      <p className="privacy-description">One place for passwords, API keys, and private notes. Encrypted on your device. Stored across Walrus.</p>
-      <div className="vault-illustration" aria-hidden="true"><div className="orbit orbit-outer" /><div className="orbit orbit-inner" />
-        <div className="orbit-node node-key"><KeyRound size={19} /></div><div className="orbit-node node-storage"><Database size={18} /></div>
-        <div className="vault-core"><div><Fingerprint size={54} strokeWidth={1.2} /></div></div><span className="illustration-caption">YOUR DEVICE · YOUR MASTER KEY</span></div>
-      <div className="privacy-features"><span><ShieldCheck size={15} />Local encryption</span><span><Wallet size={15} />Wallet authorization</span><span><Database size={15} />Distributed storage</span></div>
-    </article>
-    <section className="panel setup-card" aria-labelledby="setup-title">
-      <div className="card-topline"><span className="eyebrow">LET’S GET YOU SET UP</span><span className="mono small muted">{Number(configured) + Number(connected)} / 3</span></div>
-      <h2 id="setup-title">Your vault starts here</h2><p className="muted small">Connect your infrastructure, then authorize access.</p>
+  return <div className="landing">
+    <a className="skip-link" href="#vault-access">Skip to vault login</a>
+    <main className="login-page" id="main-content" tabIndex={-1}>
+    <section className="login-hero" ref={hero} aria-labelledby="hero-title">
+      <HeroTrail hero={hero} />
+      <header className="hero-header"><Brand /><span className="hero-header-note eyebrow">A LITTLE LESS WORRY. A LOT MORE YOURS.</span>
+        <nav aria-label="Welcome navigation"><a href="#privacy" className="hero-nav-link">The Keeva way<ArrowUpRight size={14} /></a><a className="hero-entry" href="#vault-access">Open vault<ArrowUpRight size={17} /></a></nav>
+      </header>
+      <div className="hero-content">
+      <div className="hero-intro">
+        <div className="hero-kicker eyebrow"><span />YOUR DIGITAL LIFE, HELD CLOSE.</div>
+        <h1 id="hero-title">Your life.<br /><span>Your keys.</span></h1>
+        <div className="hero-story">
+          <a href="#privacy" className="logo-fan" aria-label="Encrypted locally. Stored on Walrus. Explore Keeva privacy.">
+            <span className="fan-card fan-card-back" aria-hidden="true"><Database size={22} /></span>
+            <span className="fan-card fan-card-middle" aria-hidden="true"><KeyRound size={22} /></span>
+            <span className="fan-card fan-card-front"><img src="/keeva-logo.webp" alt="Keeva’s folded-ribbon padlock" width={752} height={752} /></span>
+          </a>
+          <div className="hero-description"><p>A private home for your passwords, API keys, and notes. Encrypted on your device. Yours to unlock.</p>
+            <a href="#privacy" className="hero-text-link">Privacy, by design<ArrowRight size={16} /></a></div>
+        </div>
+      </div>
+      <section className="setup-card" id="vault-access" tabIndex={-1} aria-labelledby="setup-title" data-pointer-quiet>
+      <div className="card-topline"><span className="eyebrow">WELCOME TO YOUR PRIVATE SPACE</span><LockKeyhole size={17} /></div>
+      <h2 id="setup-title">Secure Vault<br /> Initialization</h2><p className="muted small">A little setup. A space that’s entirely yours.</p>
+      {!window.isSecureContext && <p className="error" role="alert">Open Keeva over HTTPS or localhost to enable browser cryptography and protected clipboard access.</p>}
+      {vaultError && <div role="alert" className="notice error">{vaultError}</div>}
+      {message && <div className="notice feedback-notice"><span role="status">{message}</span><button className="text-button" onClick={() => setMessage('')}>Dismiss</button></div>}
       <ol className="setup-steps">
-        <li className={configured ? 'complete' : 'current'}><span className="step-number">{configured ? <Check size={15} /> : '01'}</span><div><h3>Configure your gateways</h3><p>Tatum RPC and your Walrus Memory account.</p>
-          <button className={configured ? 'text-button' : 'primary'} onClick={openSettings}><Settings2 size={15} />{configured ? 'Edit gateway configuration' : 'Configure gateways'}<ArrowRight size={14} /></button></div></li>
+        <li className={configured ? 'complete' : 'current'}><span className="step-number">{configured ? <Check size={15} /> : '01'}</span><div><h3>Configure your gateways</h3><p>Tatum API and your Walrus Memory account.</p>
+          <button className={configured ? 'text-button' : 'primary hero-action'} onClick={openSettings}>{configured ? 'Edit gateway configuration' : 'Configure gateways'}<ArrowUpRight size={16} /></button></div></li>
         <li className={connected ? 'complete' : configured ? 'current' : ''}><span className="step-number">{connected ? <Check size={15} /> : '02'}</span><div><h3>Connect your Sui wallet</h3><p>The wallet that owns your memory account.</p><ConnectButton /></div></li>
         <li className={ready ? 'current' : ''}><span className="step-number">03</span><div><h3>Open your private vault</h3><p>{ready ? 'Inspect storage to unlock or initialize your vault.' : 'Your unlock options appear after connection.'}</p>
           {!ready && <span className="small muted inline-icon"><LockKeyhole size={12} />Awaiting gateway and wallet setup</span>}
@@ -72,10 +85,27 @@ export default function Initialization({ openSettings }: { openSettings: () => v
     </form>}
     {busy && <p className="loading-state" role="status"><LoaderCircle size={16} className="spin" />Waiting for wallet, cryptography, or storage operations…</p>}
     {error && <p className="error" role="alert">{error}</p>}
+    <div className="setup-caption"><LockKeyhole size={12} /><span>YOUR MASTER KEY STAYS WITH YOU</span></div>
     </section>
-    <article className="panel bento-card encryption-card"><div className="card-topline"><span className="icon-tile secure"><ShieldCheck size={18} /></span><span className="eyebrow">ENCRYPTION STANDARD</span></div>
-      <div className="metric-value">AES-256<span className="metric-unit">GCM</span></div><p className="muted small">Authenticated encryption. Master keys stay in your browser.</p><div className="card-footnote"><LockKeyhole size={13} />Non-extractable keys</div></article>
-    <NetworkCards />
     </div>
-  </section></PageTransition>;
+    <div className="hero-bottom"><span className="eyebrow">PASSWORDS / API KEYS / PRIVATE NOTES</span><a href="#privacy">A little peace of mind<ArrowDown size={16} /></a><span className="eyebrow">BUILT ON SUI. STORED ON WALRUS.</span></div>
+    </section>
+    <section className="privacy-section" id="privacy" aria-labelledby="privacy-title">
+      <div className="privacy-heading"><span className="eyebrow">01 / THE KEEVA WAY</span><h2 id="privacy-title">Keep the keys.<br /><span>Lose the noise.</span></h2><p>Your private life deserves a private space. Keeva brings your essentials together, with encryption that starts right where you are.</p></div>
+      <div className="privacy-principles">
+        <article><span className="principle-number">01 —</span><KeyRound size={27} strokeWidth={1.25} /><h3>Private from the start.</h3><p>Your credentials are encrypted in your browser before they leave your device. Your master key stays local.</p></article>
+        <article><span className="principle-number">02 —</span><Database size={27} strokeWidth={1.25} /><h3>A home beyond one server.</h3><p>Encrypted records live on Walrus. Your Sui wallet authorizes access to the memory account you own.</p></article>
+        <article><span className="principle-number">03 —</span><ShieldCheck size={27} strokeWidth={1.25} /><h3>Less trust. More clarity.</h3><p>Search locally, review credential health, and inspect storage receipts. See what’s happening to your vault.</p></article>
+      </div>
+      <div className="connection-heading"><span className="eyebrow">02 / UNDER THE SURFACE</span><span className="small muted">Connection readings appear when available.</span></div>
+      <div className="bento-grid landing-network">
+        <article className="panel bento-card encryption-card"><div className="card-topline"><span className="icon-tile secure"><ShieldCheck size={18} /></span><span className="eyebrow">ENCRYPTION STANDARD</span></div>
+          <div className="metric-value">AES-256<span className="metric-unit">GCM</span></div><p className="muted small">Authenticated encryption. Master keys stay in your browser.</p><div className="card-footnote"><LockKeyhole size={13} />Non-extractable keys</div></article>
+        <NetworkCards />
+      </div>
+    </section>
+    </main>
+    <footer className="landing-footer"><div><span className="eyebrow">A SPACE THAT’S ENTIRELY YOURS.</span><a href="#vault-access">Make yourself at home<ArrowUpRight size={20} /></a></div>
+      <span className="footer-wordmark" aria-hidden="true">keeva</span><div className="landing-footer-bottom"><span>Keeva · Your life. Your keys.</span><span>Client-encrypted. Wallet-authorized.</span><a href="#main-content">Back to top<ArrowUpRight size={14} /></a></div></footer>
+  </div>;
 }

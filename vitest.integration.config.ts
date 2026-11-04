@@ -4,5 +4,5 @@ import { loadEnv } from 'vite';
 Object.assign(process.env, loadEnv('integration', process.cwd(), ''));
 
 export default defineConfig({
-  test: { include: ['tests/**/*.integration.test.ts'], testTimeout: 120_000 },
+  test: { include: ['tests/**/*.integration.test.ts'], setupFiles: ['tests/setupIntegrationBackend.ts'], testTimeout: 120_000 },
 });

@@ -32,7 +32,7 @@ export class VaultStorageService {
 
   constructor(readonly config: VaultConfig, readonly wallet: string) {
     this.memwal = createMemwal(config);
-    this.rpc = new TatumSuiClient(config.tatumApiKey);
+    this.rpc = new TatumSuiClient(config.tatumApiKey, config.tatumRpcUrl, config.tatumApiType);
     this.scope = `${config.memwalAccountId.toLowerCase()}:${config.memwalNamespace}`;
     this.prefix = `${config.memwalNamespace}.r.`;
   }
@@ -128,12 +128,12 @@ export class VaultStorageService {
     if (material.method === 'passphrase') {
       const message = utf8.encode(`Keeva wallet authorization\nAccount: ${header.accountId}\nNamespace: ${header.namespace}\nChallenge: ${crypto.randomUUID()}`);
       const { signature } = await sign(message);
-      await verifyPersonalMessageSignature(message, signature, { address: this.wallet, client: this.rpc.sdk });
+      await verifyPersonalMessageSignature(message, signature, { address: this.wallet, client: this.rpc.signatureClient });
       bytes = utf8.encode(material.passphrase);
     } else {
       const message = utf8.encode(`Keeva private vault key derivation v1\n${this.headerContext(header)}\nKeep this signature private. It unlocks this vault.`);
       const { signature } = await sign(message);
-      await verifyPersonalMessageSignature(message, signature, { address: this.wallet, client: this.rpc.sdk });
+      await verifyPersonalMessageSignature(message, signature, { address: this.wallet, client: this.rpc.signatureClient });
       invariant(parseSerializedSignature(signature).signatureScheme === 'ED25519', 'WALLET_SCHEME',
         'Wallet-derived vault keys require deterministic Ed25519 signatures. Use a passphrase with this wallet.');
       bytes = fromBase64(signature);

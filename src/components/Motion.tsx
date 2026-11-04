@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../state/useReducedMotion';
 import type { ReactNode } from 'react';
 
 export const spring = { type: 'spring', stiffness: 300, damping: 30 } as const;

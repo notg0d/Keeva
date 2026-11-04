@@ -10,5 +10,9 @@ export async function fetchJson(url: string, init: RequestInit = {}, timeoutMs =
       : `Gateway returned HTTP ${response.status}.`;
     throw new VaultError('HTTP_ERROR', detail);
   }
-  return response.json() as Promise<unknown>;
+  try { return await response.json() as unknown; }
+  catch (cause) {
+    if (cause instanceof SyntaxError) throw new VaultError('GATEWAY_RESPONSE', 'The gateway returned an invalid JSON response. Check the endpoint URL and gateway proxy configuration.', { cause });
+    throw cause;
+  }
 }

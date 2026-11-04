@@ -2,21 +2,22 @@ import { MemWal } from '@mysten-incubation/memwal';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { z } from 'zod';
 import { configSchema, type VaultConfig } from '../config/vaultConfig';
+import { memwalTransportUrl } from '../config/gatewayRoutes';
 import { fromHex, toHex, utf8 } from '../lib/encoding';
-import { invariant } from '../lib/errors';
+import { errorMessage, invariant, VaultError } from '../lib/errors';
 import { fetchJson } from '../lib/http';
 import { TatumSuiClient } from './tatumSuiClient';
 
 export function createMemwal(config: VaultConfig): MemWal {
   configSchema.parse(config);
   return MemWal.create({ key: config.memwalPrivateKey, accountId: config.memwalAccountId,
-    namespace: config.memwalNamespace, serverUrl: config.memwalServerUrl.replace(/\/$/, ''),
+    namespace: config.memwalNamespace, serverUrl: memwalTransportUrl(config.memwalServerUrl),
     requestTimeoutMs: 30_000, recallTimeoutMs: 60_000, preflightTimeoutMs: 10_000 });
 }
 
 export async function assertRelayerMainnet(config: VaultConfig): Promise<void> {
   const deployment = z.object({ network: z.string(), packageId: z.string() }).parse(
-    await fetchJson(`${config.memwalServerUrl.replace(/\/$/, '')}/config`));
+    await fetchJson(`${memwalTransportUrl(config.memwalServerUrl)}/config`));
   invariant(deployment.network === 'mainnet', 'RELAYER_NETWORK', 'The Walrus relayer must be configured for Mainnet.');
 }
 
@@ -33,7 +34,7 @@ export async function verifyDelegate(config: VaultConfig, memwal: MemWal, wallet
   try { signature = toHex(await Ed25519Keypair.fromSecretKey(privateBytes).sign(utf8.encode(canonical))); }
   finally { privateBytes.fill(0); }
   const identity = z.object({ account_id: z.string(), owner: z.string() }).parse(await fetchJson(
-    `${config.memwalServerUrl.replace(/\/$/, '')}${path}`, { headers: {
+    `${memwalTransportUrl(config.memwalServerUrl)}${path}`, { headers: {
       'x-public-key': publicKey, 'x-agent-id': publicKey, 'x-account-id': config.memwalAccountId,
       'x-signature': signature, 'x-timestamp': timestamp, 'x-nonce': nonce,
     } }));
@@ -44,10 +45,16 @@ export async function verifyDelegate(config: VaultConfig, memwal: MemWal, wallet
 
 export async function testVaultConnectivity(config: VaultConfig, wallet?: string) {
   const memwal = createMemwal(config);
+  const check = async <T,>(label: string, operation: () => Promise<T>): Promise<T> => {
+    try { return await operation(); }
+    catch (cause) { throw new VaultError('CONNECTIVITY', `${label}: ${errorMessage(cause)}`, { cause }); }
+  };
   try {
     const [health, telemetry, , owner] = await Promise.all([
-      memwal.health(), new TatumSuiClient(config.tatumApiKey).getNetworkTelemetry(),
-      assertRelayerMainnet(config), verifyDelegate(config, memwal, wallet),
+      check('Walrus health', () => memwal.health()),
+      check('Tatum Mainnet API', () => new TatumSuiClient(config.tatumApiKey, config.tatumRpcUrl, config.tatumApiType).getNetworkTelemetry()),
+      check('Walrus deployment', () => assertRelayerMainnet(config)),
+      check('Walrus account authorization', () => verifyDelegate(config, memwal, wallet)),
     ]);
     invariant(health.status === 'ok', 'RELAYER_HEALTH', 'The Walrus relayer is not healthy.');
     return { health, telemetry, owner, checkedAt: new Date().toISOString() };

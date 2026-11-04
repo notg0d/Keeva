@@ -1,6 +1,6 @@
 # Keeva
 
-Client-encrypted credential vault using Sui Mainnet, Tatum JSON-RPC, and Walrus Memory, with a responsive dark workspace and modular bento dashboards.
+Client-encrypted credential vault using Sui Mainnet, Tatum GraphQL or JSON-RPC, and Walrus Memory, with a deep-green login hero and a mint workspace.
 
 ## Run
 
@@ -19,7 +19,10 @@ The configured MemWal account and registered delegate must already exist on Main
 
 | Setting | Purpose |
 | --- | --- |
-| `VITE_TATUM_API_KEY` | Tatum key, transmitted as `x-api-key` only to the fixed Mainnet gateway |
+| `VITE_TATUM_API_TYPE` | `graphql` (new-configuration default) or `json-rpc`; editable in gateway settings |
+| `VITE_TATUM_RPC_URL` | Your full HTTPS Sui Mainnet endpoint URL for the selected interface; required, with no default |
+| `TATUM_GRAPHQL_RECOVERY_URL` | Optional server-side GraphQL route used only when the requested endpoint returns Tatum `-16401` or `-16405`; blank by default |
+| `VITE_TATUM_API_KEY` | Tatum key; Keeva's backend sends it as `x-api-key` to the configured endpoint |
 | `VITE_MEMWAL_PRIVATE_KEY` | 64-character hexadecimal delegate private key |
 | `VITE_MEMWAL_ACCOUNT_ID` | Full `0x`-prefixed 32-byte memory account object ID |
 | `VITE_MEMWAL_AGENT_ID` | Delegate public key, validated against the private key |
@@ -28,12 +31,33 @@ The configured MemWal account and registered delegate must already exist on Main
 
 Browser-entered public settings persist in localStorage. Secrets are session-only by default. Optional device persistence wraps gateway secrets with AES-GCM under a separate PBKDF2-derived device passphrase. Master vault keys and decrypted credentials are never persisted. The delegate public key is sent by the SDK in its signed `x-public-key` header; the identity check additionally includes `x-agent-id`.
 
+The hosted Walrus relayer does not allow direct cross-origin browser requests. Keeva routes its default relayer through the same-origin `/gateway/walrus/` path in Vite development/preview, the production Node server, and the supplied Nginx configuration. The upstream is fixed to `https://relayer.memory.walrus.xyz`; the proxy forwards signed requests and encrypted payloads, never master keys or delegate private keys. Custom HTTPS relayers must allow the application origin through their own CORS configuration. Node integration checks use the relayer directly.
+
+Tatum requests use the same-origin **`POST /api/tatum` backend**, adapted from SubSense's server-side `queryTatum` method. Each request carries the selected endpoint, interface, API key, and public chain query. The backend sends `Content-Type` and `x-api-key` to Tatum, validates the response, and returns chain data or a specific provider error. It does not persist or log API keys. Both GraphQL and the supported JSON-RPC read methods use this route, including remote signature verification. Vault encryption and local digest/signature checks remain in the browser.
+
+Choose **Tatum interface**, then enter your own **Tatum endpoint URL · Sui Mainnet** beside the API key in **Vault & Gateway Settings**. There is no default Tatum gateway. The URL must be an HTTPS `*.gateway.tatum.io` endpoint without custom ports, embedded credentials, query parameters, or fragments; enter the key in its separate field. Connectivity testing, telemetry, and transaction verification use the selected interface and exact URL, and verify Sui Mainnet. The environment variable retains the name `VITE_TATUM_RPC_URL` for compatibility and accepts either interface's endpoint.
+
+Match the interface to your gateway's `/_methods` discovery. Current Tatum Sui Mainnet discovery advertises **GraphQL**. In GraphQL mode, enter the full URL advertised by Tatum, including `/graphql` when present. Tatum's browser CORS policy does not apply to the server-to-server request. An incompatible URL is reported with the provider code, such as `-16401`; GraphQL schema errors include the provider's diagnostic with the API key redacted.
+
+For a deployment with a selected working GraphQL gateway, set `TATUM_GRAPHQL_RECOVERY_URL` in the server environment or ignored `.env.local`. When an existing saved URL returns `-16401` or `-16405`, the backend retries that read once against this explicitly configured route. It reports the resolved URL, the client reuses it for subsequent reads, and connectivity testing updates the form's endpoint. Use **Save configuration** to retain the correction. Authorization failures, partial data, schema errors, and other provider errors do not trigger route changes. With this setting empty, only the exact requested endpoint is used. No Tatum endpoint is embedded in the application source.
+
+Select **JSON-RPC** only when your endpoint advertises Sui `sui_*` and `suix_*` methods. Errors `-32601` and `-16405` mean the named method is unavailable. A gRPC interface or an Ethereum-style `eth_*` method list cannot serve Keeva's Sui GraphQL queries; obtain the matching Sui endpoint from Tatum. Older saved configurations without an interface field retain JSON-RPC interpretation; select GraphQL explicitly when migrating. New configurations select GraphQL but leave the endpoint blank.
+
+Use **Test Tatum connection** to check the endpoint and key independently of Walrus configuration. **Test Vault Connectivity** checks the complete form. Both use the current form without saving it; use **Save configuration** to apply settings. Page reloads clear session-only secrets; select **Encrypt gateway credentials on this device** and supply a separate device passphrase to retain them encrypted across reloads. Settings are specific to the browser and origin, so `localhost` and `127.0.0.1` have separate storage.
+
+The backend allows read-only operations, bounds request/response sizes, rejects redirects, omits browser cookies and authorization headers, and uses a 20-second upstream deadline. Rate-limited reads have up to two retries within that deadline, respecting short `Retry-After` values or using a one/two-second backoff when no delay is provided. Other failures are returned immediately. A missing backend produces a specific startup message rather than treating an HTML page as GraphQL data.
+
 `.env.example` lists environment names. **Vite variables are compiled into public browser assets.** For a shared production deployment, leave secret environment variables empty and enter gateway credentials at runtime through settings. Never publish a build containing an operator’s delegate private key or Tatum API key.
 
 ## Components and services
 
 - `src/config/vaultConfig.ts`: schema validation, environment defaults, protected device settings.
-- `src/services/tatumSuiClient.ts`: JSON-RPC deadlines, response validation, Mainnet identity, telemetry, transaction verification.
+- `server/tatum.mjs`: SubSense-style server-to-server GraphQL/JSON-RPC reads, bounded retries, endpoint validation, and provider diagnostics.
+- `server/gateway.mjs`: same-origin Tatum API handler, shared by Vite and production.
+- `server/app.mjs`: production static hosting, Tatum API, and fixed-upstream Walrus proxy.
+- `src/services/tatumTransport.ts`: browser-to-backend transport and structured errors.
+- `src/services/tatumSuiClient.ts`: transport selection, JSON-RPC response validation, and shared transaction digest/signature verification.
+- `src/services/tatumGraphqlClient.ts`: GraphQL deadlines, strict response validation, Mainnet identity, telemetry, and paginated event/checkpoint reads.
 - `src/services/memwalGateway.ts`: production SDK construction, signed account identity, connectivity diagnostics.
 - `src/crypto/`: non-extractable AES-256-GCM keys, PBKDF2-SHA256, secure password generation.
 - `src/services/vaultStorageService.ts`: immutable encrypted records, SDK persistence, exact inventory discovery, private local search, recovery, encrypted export.
@@ -45,7 +69,7 @@ Browser-entered public settings persist in localStorage. Secrets are session-onl
 
 ### Interface and motion
 
-The interface uses self-hosted Inter and Geist Mono, zinc surfaces, and emerald/cyan/violet status accents. Framer Motion page transitions use spring stiffness 300 and damping 30. The settings drawer preserves native modal focus behavior, and clipboard checks follow successful writes. Reduced-motion preferences disable travel, scaling, shimmer, and status pulses. Locking immediately unmounts the decrypted workspace.
+The interface uses the supplied ribbon-padlock logo, self-hosted DM Sans and Geist Mono, and a mint/forest palette. The login hero includes gateway configuration, wallet connection, and vault authorization. Juice-inspired type scale and Lenis scrolling (`lerp: 0.1`) accompany a hero-only particle trail and fanning logo cards inspired by Janis Wanger. The authenticated workspace uses a spacious text-based vertical menu. Touch scrolling stays native; reduced-motion preferences disable smooth scrolling and decorative motion. The settings drawer preserves native modal focus behavior, and clipboard checks follow successful writes. Locking immediately unmounts the decrypted workspace. See [design direction](docs/design-direction.md) for reference details.
 
 Dashboard values come from the current vault snapshot and real gateway responses. Connection indicators pulse only for fresh successful readings; disconnected services show explicit setup states. See [design research and decisions](docs/design-direction.md) for the reviewed sources and their application.
 
@@ -62,7 +86,9 @@ Dashboard values come from the current vault snapshot and real gateway responses
 
 ## Network and verification boundaries
 
-Tatum telemetry requests the specified `sui_getLatestSuiSystemState` and `sui_getReferenceGasPrice` methods, falling back to their canonical `suix_` names only for JSON-RPC method-not-found. Transaction count and checkpoint height are distinct measurements. All metrics originate from live RPC responses.
+GraphQL telemetry reads the chain identifier and latest checkpoint's epoch, reference gas price, cumulative transaction count, and sequence number in one query. The full genesis digest is decoded to validate Mainnet's `35834a8a` chain identifier. GraphQL errors, partial results, missing required fields, and non-advancing pagination fail closed. Transaction events are paginated in sequence; checkpoint transaction pages are searched until membership is found or the list is exhausted. Both use pages of 50 to respect Tatum's current limit.
+
+In JSON-RPC mode, telemetry requests `sui_getLatestSuiSystemState` and `sui_getReferenceGasPrice`, falling back to their canonical `suix_` names only for method-unavailable responses. Transaction count and checkpoint height are distinct measurements. All metrics originate from live gateway responses. The legacy dapp-kit provider supplies wallet network context; cryptographic verification uses the client for the selected transport.
 
 Transaction verification recomputes the transaction digest from BCS bytes, verifies sender/sponsor intent signatures using the Sui SDK, checks the connected sender, and requests checkpoint membership. Contract event recognition uses explicitly configured full event types. **Checkpoint membership, execution status, and event contents are RPC-attested, not independently verified validator-certificate proofs.** No sharing or recovery contract is assumed to exist. A verified transaction is recorded as `transaction.checked`, never as a claimed sharing or recovery success.
 
@@ -91,21 +117,25 @@ npm run build
 npm audit --omit=dev
 ```
 
-Unit checks exercise actual Web Crypto and Sui signatures, authentication failures, ciphertext/context tampering, generator constraints, missing/cyclic revision history, concurrent updates, reuse, and rotation. They do not replace gateway operations with in-memory network substitutes.
+Unit checks exercise actual Web Crypto and Sui signatures, authentication failures, ciphertext/context tampering, generator constraints, missing/cyclic revision history, concurrent updates, reuse, and rotation. GraphQL transport checks additionally exercise response validation and pagination using controlled responses and locally signed transaction bytes. These offline checks do not establish live gateway connectivity.
 
 ```sh
 npm run test:integration
 ```
 
-Integration checks read `.env.integration` locally and are skipped if required gateway credentials are absent. Read checks authenticate the real delegate and fetch Mainnet telemetry. Set `KEEVA_INTEGRATION_WRITE=1` explicitly to run a real paid Walrus write/read/restore check in a fresh isolated namespace. It leaves its encrypted blob on Mainnet. End-to-end wallet/storage success must be validated with the operator’s actual configured account.
+Integration checks read `.env.integration` locally and start the real Node backend on an ephemeral local port. They are skipped if required gateway credentials are absent. Tatum-only checks need the endpoint, interface, and API key; optionally set `KEEVA_INTEGRATION_TX_DIGEST` to verify a real successful programmable transaction. Combined read checks authenticate the real delegate and fetch Mainnet telemetry. Set `KEEVA_INTEGRATION_WRITE=1` explicitly to run a real paid Walrus write/read/restore check in a fresh isolated namespace. It leaves its encrypted blob on Mainnet. End-to-end wallet/storage success must be validated with the operator’s actual configured account.
 
 ## Deployment
 
 ```sh
 npm run build
-npm run preview
+npm start
 ```
 
-Serve `dist/` over HTTPS. A Dockerfile and Nginx configuration are provided. Terminate TLS at the ingress, configure HSTS there, and pin container image digests in your deployment pipeline. Nginx sets CSP, framing, referrer, and browser-permission policies. Restrict `connect-src` and `frame-src` to approved wallet/gateway origins in an institutional deployment; the provided policy accommodates runtime-configured HTTPS relayers and wallet providers.
+`npm start` loads `.env.local` when present and serves the built app, `/api/tatum`, and `/gateway/walrus/` together on `127.0.0.1:3000`. Set `HOST` and `PORT` for your deployment. `npm run dev` and `npm run preview` also load local configuration and include the Tatum backend through the shared Vite middleware. Restart an already running development process after updating the backend configuration. For containers, pass server configuration through environment variables.
+
+The Dockerfile runs this Node server on port 3000 as an unprivileged user. Terminate HTTPS at the ingress, configure HSTS there, and pin container image digests in your deployment pipeline. The optional Nginx configuration serves `dist/`, proxies `/api/` to the Node backend on `127.0.0.1:3000`, and provides the fixed Walrus proxy. Adjust that internal backend address when Nginx runs in a separate container. Static-only hosting of `dist/` is insufficient; both gateway routes need their backend handlers.
+
+The Node server and Nginx configuration set CSP, framing, referrer, and browser-permission policies. Restrict `connect-src` and `frame-src` to approved wallet/gateway origins in an institutional deployment; the provided policy accommodates runtime-configured HTTPS relayers and wallet providers.
 
 No application server receives master keys or plaintext credentials. This is a browser service layer backed by the configured networks. MemWal is an evolving external service, and this implementation has not undergone an independent cryptographic or application-security audit.

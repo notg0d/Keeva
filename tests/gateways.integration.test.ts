@@ -5,8 +5,10 @@ import { testVaultConnectivity } from '../src/services/memwalGateway';
 import { createKdf, decryptJson, deriveMasterKey, encryptJson } from '../src/crypto/vaultCrypto';
 import { utf8 } from '../src/lib/encoding';
 
-const configured = !!process.env.VITE_TATUM_API_KEY && !!process.env.VITE_MEMWAL_PRIVATE_KEY && !!process.env.VITE_MEMWAL_ACCOUNT_ID && !!process.env.VITE_MEMWAL_AGENT_ID;
-const configuration = () => configSchema.parse({ tatumApiKey: process.env.VITE_TATUM_API_KEY,
+const configured = !!process.env.VITE_TATUM_RPC_URL && !!process.env.VITE_TATUM_API_KEY && !!process.env.VITE_MEMWAL_PRIVATE_KEY && !!process.env.VITE_MEMWAL_ACCOUNT_ID && !!process.env.VITE_MEMWAL_AGENT_ID;
+const configuration = () => configSchema.parse({ tatumRpcUrl: process.env.VITE_TATUM_RPC_URL,
+  tatumApiType: process.env.VITE_TATUM_API_TYPE || 'graphql',
+  tatumApiKey: process.env.VITE_TATUM_API_KEY,
   memwalPrivateKey: process.env.VITE_MEMWAL_PRIVATE_KEY, memwalAccountId: process.env.VITE_MEMWAL_ACCOUNT_ID,
   memwalAgentId: process.env.VITE_MEMWAL_AGENT_ID, memwalServerUrl: process.env.VITE_MEMWAL_SERVER_URL || 'https://relayer.memory.walrus.xyz',
   memwalNamespace: process.env.VITE_MEMWAL_NAMESPACE || 'vaultos-production', autoLockMinutes: 5, auditEventTypes: [] });

@@ -5,7 +5,7 @@ import { useVault } from './VaultContext';
 export function useNetworkStatus() {
   const { config } = useConfig();
   const { service, header } = useVault();
-  const scope = [config.memwalServerUrl, config.memwalAccountId, header?.vaultId];
+  const scope = [config.tatumApiType, config.tatumRpcUrl, config.memwalServerUrl, config.memwalAccountId, header?.vaultId];
   const telemetry = useQuery({ queryKey: ['network', ...scope], queryFn: ({ signal }) => service!.rpc.getNetworkTelemetry(signal),
     enabled: !!service, refetchInterval: 30_000, staleTime: 45_000, retry: false });
   const health = useQuery({ queryKey: ['storage-health', ...scope], queryFn: () => service!.memwal.health(),

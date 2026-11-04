@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowUpRight, Database, Fingerprint, LayoutGrid, LockKeyhole, Plus, Settings2, ShieldCheck } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../state/useReducedMotion';
+import { ArrowUpRight, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { useConfig } from '../state/ConfigContext';
 import { useVault } from '../state/VaultContext';
 import SystemBar from './SystemBar';
-import { spring } from './Motion';
+import Brand from './Brand';
 
 export type View = 'inventory' | 'composer' | 'audit' | 'storage';
-const views = [{ id: 'inventory', label: 'Vault overview', icon: LayoutGrid }, { id: 'composer', label: 'Add credential', icon: Plus },
-  { id: 'audit', label: 'Security audit', icon: ShieldCheck }, { id: 'storage', label: 'Walrus storage', icon: Database }] as const;
+const views = [{ id: 'inventory', label: 'Vault overview' }, { id: 'composer', label: 'Add credential' },
+  { id: 'audit', label: 'Security audit' }, { id: 'storage', label: 'Walrus storage' }] as const;
 
 export default function WorkspaceShell({ children, openSettings, view, onChange }: {
   children: ReactNode; openSettings: () => void; view?: View; onChange?: (view: View) => void;
@@ -19,21 +20,18 @@ export default function WorkspaceShell({ children, openSettings, view, onChange 
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside className="workspace-rail">
-      <a href="#main-content" className="brand" aria-label="Keeva home"><span className="brand-mark"><Fingerprint size={23} /></span>keeva<span className="brand-period">.</span></a>
-      <div className="workspace-identity"><span className="identity-icon"><LockKeyhole size={16} /></span><div><strong>Personal workspace</strong><span>Sui Mainnet</span></div><span className="small muted">01</span></div>
-      <div className="nav-label">WORKSPACE</div>
-      <nav aria-label="Vault navigation">{views.map(({ id, label, icon: Icon }) => <button key={id}
+      <Brand />
+      <div className="rail-navigation"><div className="nav-label">YOUR WORKSPACE</div>
+      <nav aria-label="Vault navigation">{views.map(({ id, label }, index) => <button key={id}
         aria-label={label} aria-current={view === id ? 'page' : undefined} disabled={!onChange} onClick={() => onChange?.(id)} title={!onChange ? 'Unlock your vault to continue' : label}>
-        {view === id && <motion.span className="nav-selection" layoutId="nav-selection" transition={reduce ? { duration: 0 } : spring} />}
-        <Icon size={18} /><span>{label}</span>{!onChange && <LockKeyhole size={12} className="nav-lock" />}
+        <span className="nav-index">0{index + 1}</span><span>{label}</span><ArrowUpRight size={15} className="nav-arrow" />
       </button>)}</nav>
+      <div className="rail-utilities"><button className="rail-action" onClick={openSettings}>Gateway settings<ArrowUpRight size={14} /></button>
+        {snapshot && <button className="rail-action" onClick={lock}>Lock vault<LockKeyhole size={13} /></button>}</div></div>
       <div className="rail-bottom">
-        <div className="session-card"><ShieldCheck size={20} className={snapshot ? 'secure' : 'muted'} /><strong>{snapshot ? 'Vault unlocked' : 'Your privacy, by design.'}</strong>
-          <p>{snapshot ? 'Keys are held in this browser session.' : 'Your credentials are encrypted before they leave your device.'}</p>
-          <span className="mono small">AES-256-GCM <ArrowUpRight size={12} /></span></div>
-        <button className="rail-action" onClick={openSettings} aria-label="Gateway settings" title="Gateway settings"><Settings2 size={17} />Gateway settings</button>
-        {snapshot && <button className="rail-action" onClick={lock} aria-label="Lock vault" title="Lock vault"><LockKeyhole size={17} />Lock vault</button>}
-        <div className="rail-footer"><span className="storage">◇</span><span className="truncate" title={config.memwalNamespace}>{config.memwalNamespace}</span></div>
+        <div className="session-card"><ShieldCheck size={18} className="secure" /><strong>{snapshot ? 'Your vault is open.' : 'Your vault is locked.'}</strong>
+          <p>{snapshot ? 'Your keys stay in this browser session.' : 'Unlock to access your private space.'}</p></div>
+        <div className="rail-footer"><span className="truncate" title={config.memwalNamespace}>{config.memwalNamespace}</span><span>SUI MAINNET</span></div>
       </div>
     </aside>
     <div className="workspace-body"><SystemBar openSettings={openSettings} pageLabel={views.find((item) => item.id === view)?.label ?? 'Getting started'} />

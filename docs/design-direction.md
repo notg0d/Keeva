@@ -1,23 +1,24 @@
 # Keeva interface direction
 
-Research reviewed before layout implementation, 4 November 2026.
+Updated 4 November 2026.
 
 ## References
 
-- [Awwwards: DeepBook](https://www.awwwards.com/sites/deepbook), Site of the Day, 3 November 2026. The linked [DeepBook site](https://deepbook-v2-wip.webflow.io/) uses a black canvas, generous negative space, oversized sans-serif headlines, contained navigation, and a single bright action color. Its showcase includes mobile and scroll-interaction studies; the live site includes GSAP and scroll-animation tooling. Keeva adapts the hierarchy and contained surfaces to an application-sized type scale.
-- [Awwwards security collection](https://www.awwwards.com/websites/security/) and [fintech collection](https://www.awwwards.com/websites/fintech/): reviewed the available listings. Several security entries are honorable mentions; those are not treated as daily or monthly winners.
-- [Godly](https://godly.website/) now redirects to Recent. Its current visual feed uses pill filters, spacious typography, and rounded modular previews. These inform compact navigation and localized interaction feedback. The redirect prevents treating it as the earlier Godly collection.
-- [Lapa Ninja bento collection](https://www.lapa.ninja/category/bento-grid/): the Beaucoup and other modular examples show that asymmetry works best with shared spacing and clear content priority.
-- [Bento Grids](https://bentogrids.com/): reviewed the dark gallery and modular compositions. Use a dominant card alongside smaller supporting cards, with consistent gutters and restrained corner radii.
-- [Siteinspire](https://www.siteinspire.com/) returned rate-limit/network errors. No direct visual findings are attributed to it.
+- [Juice](https://www.juice.agency/): inspected the live page, font declarations, and scrolling implementation. Its light Riposte body typography, enormous custom SVG wordmark, small monospaced labels, and generous spacing inform Keeva’s hierarchy. Keeva uses self-hosted, open-source DM Sans (light display weight) and Geist Mono to express that direction. Juice’s Lenis configuration uses smooth wheel scrolling with `lerp: 0.1` and native touch scrolling; Keeva uses the same settings, driven by Lenis’s animation frame loop.
+- [Janis Wanger](https://janiswanger.ch/): inspected the canvas pointer trail and overlapping card interactions. Keeva adapts the fading particles and background-click bursts to the logo palette, with a 180-particle limit. The logo cards fan outward, lift `.45rem`, and rotate with `cubic-bezier(.22,1,.36,1)` over 700ms; CTA arrows shift `.4rem` over 500ms. These effects are scoped to `.login-hero`.
+- Supplied SÈVE dashboard image: broad, quiet left rail, branding at the top, and restrained uppercase navigation vertically centered. Keeva adapts the structure in pale mint with a text-first active state and a compact horizontal text menu on small screens.
+- Supplied 752×752 ribbon-padlock artwork: used directly in the brand and hero. `public/keeva-logo.webp` is a compressed copy; `public/favicon.png` is its resized icon.
 
-## Application
+## Palette and layout
 
-- Canvas `#09090b`; translucent `#18181b` panels; `#27272a` borders.
-- Emerald `#10b981` for encryption, cyan `#06b6d4` for RPC, violet `#8b5cf6` for storage, amber for rotation/review.
-- Self-hosted Inter and Geist Mono, with compact labels, strong page headings, and tabular numeric values.
-- A stable workspace rail, a compact utility bar, and responsive 12-column bento layouts. Initialization is the first content shown, followed by configuration, wallet connection, and vault authorization.
-- Framer Motion spring transitions use stiffness 300 and damping 30. Card hover scale is 1.02 on pointer devices. Primary actions have a short hover shimmer. Status rings pulse only for a fresh successful service reading.
-- A native modal dialog retains focus containment while its drawer and blurred backdrop animate in and out. Reduced-motion preferences remove travel, scaling, shimmer, and pulse.
-- Clipboard checks follow successful clipboard writes. Credential confirmation follows a real storage receipt and synchronization. No invented telemetry, credential examples, or synthetic activity charts.
-- Locking immediately unmounts the decrypted workspace; its exit animation never delays removal.
+- Forest hero `#0e1d17`; mint highlight `#d6f5bf`; light canvas `#f2f5ee`; rail `#e3eadc`; ink `#183126`.
+- The hero is the login screen. **Secure Vault Initialization** precedes gateway configuration, wallet connection, inspection, restore, and authorization. Setup errors and operation feedback appear in the login card.
+- Four authenticated views retain their functional credential, audit, and storage tools. Their surfaces, settings drawer, and wallet picker share the logo palette.
+- Status labels and values reflect actual application state and readings. Decorative cards represent encryption and storage concepts, not credential records.
+
+## Motion and accessibility
+
+- Lenis yields to native scrolling in dialogs, selects, textareas, and nested scroll areas. Reduced-motion users retain native document scrolling. Switching between login and vault resets the scroll position.
+- The canvas is noninteractive and decorative. Trails stop over form controls and the login card. They run only for fine mouse pointers, stop when the hero leaves the viewport or the document becomes hidden, and release observers/listeners on unmount. No idle animation loop runs without particles.
+- Keyboard focus indicators, anchor navigation, native wallet dialogs, and settings focus restoration are retained. Reduced motion disables particle drawing, card transforms, CTA travel, and page travel.
+- Locking immediately unmounts decrypted content; no exit transition delays removal.

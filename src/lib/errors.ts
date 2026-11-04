@@ -10,6 +10,9 @@ export function errorMessage(error: unknown): string {
   if (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name)) {
     return 'The request timed out or was cancelled. Check connectivity and retry.';
   }
+  if (error instanceof TypeError && /fetch|network|load failed/i.test(error.message)) {
+    return 'The browser could not reach the gateway. Check network access and the relayer proxy or browser-access (CORS) configuration.';
+  }
   return 'The operation could not be completed. Check gateway access, account authorization, and connectivity.';
 }
 

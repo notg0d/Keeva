@@ -2,23 +2,33 @@ import { z } from 'zod';
 import { createKdf, decryptJson, deriveMasterKey, encryptJson, kdfSchema, cipherSchema } from '../crypto/vaultCrypto';
 import { utf8 } from '../lib/encoding';
 import { VaultError } from '../lib/errors';
+import { DEFAULT_MEMWAL_SERVER_URL } from './gatewayRoutes';
 
-export const TATUM_RPC_URL = 'https://sui-mainnet.gateway.tatum.io/';
 export const MAINNET_CHAIN_ID = '35834a8a';
 const SETTINGS_KEY = 'keeva.settings.v1';
 const SECRETS_KEY = 'keeva.gateway.v1';
 const objectId = z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'Use a full 32-byte Sui object ID.');
 const publicSchema = z.object({
+  tatumApiType: z.enum(['graphql', 'json-rpc']).optional(),
+  tatumRpcUrl: z.string().optional(),
   memwalAccountId: z.string(), memwalAgentId: z.string(), memwalServerUrl: z.string(),
   memwalNamespace: z.string(), autoLockMinutes: z.number().int().min(1).max(60),
   auditEventTypes: z.array(z.string()),
 });
 export const configSchema = publicSchema.extend({
-  tatumApiKey: z.string().trim().min(1, 'Tatum API key is required.'),
+  tatumApiType: z.enum(['graphql', 'json-rpc']).default('graphql'),
+  tatumRpcUrl: z.url({ error: 'Enter a valid Tatum endpoint URL.' }).refine((value) => {
+    if (!URL.canParse(value)) return false;
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname.endsWith('.gateway.tatum.io') && !url.port &&
+      !url.username && !url.password && !url.search && !url.hash;
+  }, 'Use an HTTPS *.gateway.tatum.io endpoint without a custom port, URL credentials, query parameters, or fragments.'),
+  tatumApiKey: z.string().trim().regex(/^[\x21-\x7e]{1,512}$/, 'Enter a valid Tatum API key.'),
   memwalPrivateKey: z.string().regex(/^[0-9a-fA-F]{64}$/, 'Use a 64-character hex delegate private key.'),
   memwalAccountId: objectId,
   memwalAgentId: z.string().regex(/^(0x)?[0-9a-fA-F]{64}$/, 'Use the delegate public key in hex.'),
   memwalServerUrl: z.url().refine((value) => {
+    if (!URL.canParse(value)) return false;
     const url = new URL(value);
     return url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash;
   }, 'The relayer must use HTTPS without URL credentials or query parameters.'),
@@ -30,16 +40,20 @@ export type VaultConfig = z.infer<typeof configSchema>;
 export function loadVaultConfig(): VaultConfig {
   const env = import.meta.env;
   const defaults: VaultConfig = {
+    tatumApiType: env.VITE_TATUM_API_TYPE === 'json-rpc' ? 'json-rpc' : 'graphql',
+    tatumRpcUrl: env.VITE_TATUM_RPC_URL ?? '',
     tatumApiKey: env.VITE_TATUM_API_KEY ?? '', memwalPrivateKey: env.VITE_MEMWAL_PRIVATE_KEY ?? '',
     memwalAccountId: env.VITE_MEMWAL_ACCOUNT_ID ?? '', memwalAgentId: env.VITE_MEMWAL_AGENT_ID ?? '',
-    memwalServerUrl: env.VITE_MEMWAL_SERVER_URL || 'https://relayer.memory.walrus.xyz',
+    memwalServerUrl: env.VITE_MEMWAL_SERVER_URL || DEFAULT_MEMWAL_SERVER_URL,
     memwalNamespace: env.VITE_MEMWAL_NAMESPACE || 'vaultos-production',
     autoLockMinutes: 5, auditEventTypes: [],
   };
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return defaults;
-    return { ...defaults, ...publicSchema.parse(JSON.parse(raw)) };
+    const saved = publicSchema.parse(JSON.parse(raw));
+    return { ...defaults, ...saved, tatumRpcUrl: saved.tatumRpcUrl ?? defaults.tatumRpcUrl,
+      tatumApiType: saved.tatumApiType ?? 'json-rpc' };
   } catch { return defaults; }
 }
 

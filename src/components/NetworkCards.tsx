@@ -14,7 +14,7 @@ export default function NetworkCards() {
     <article className="panel bento-card network-card">
       <div className="card-topline"><span className="icon-tile network"><Activity size={18} /></span><span className="eyebrow">SUI NETWORK</span><StatusDot live={networkLive} tone="network" /></div>
       <div className="metric-value">{!service ? 'Not connected' : telemetry.isError ? 'Unavailable' : telemetry.data ? <>{telemetry.data.latencyMs}<span className="metric-unit">ms</span></> : 'Connecting…'}</div>
-      <p className="muted small">{!service ? 'Configure Tatum to read Mainnet telemetry.' : 'Mainnet RPC round-trip latency'}</p>
+      <p className="muted small">{!service ? 'Configure Tatum to read Mainnet telemetry.' : 'Mainnet API round-trip latency'}</p>
       {service && telemetry.data && <dl className="compact-data"><div><dt>Epoch</dt><dd>{telemetry.data.epoch}</dd></div><div><dt>Gas</dt><dd>{telemetry.data.gasPrice} MIST</dd></div>
         <div><dt>Checkpoint</dt><dd>{telemetry.data.checkpointHeight}</dd></div><div><dt>Transaction blocks</dt><dd>{telemetry.data.totalTransactionBlocks}</dd></div></dl>}
       {service && telemetry.error && <p className="error small wrap">{errorMessage(telemetry.error)}</p>}
