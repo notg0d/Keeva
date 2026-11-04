@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vitest/config';
+import { loadEnv } from 'vite';
 
 Object.assign(process.env, loadEnv('integration', process.cwd(), ''));
 
