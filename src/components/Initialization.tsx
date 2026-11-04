@@ -8,6 +8,8 @@ import NetworkCards from './NetworkCards';
 import Brand from './Brand';
 import HeroTrail from './HeroTrail';
 import { useReducedMotion } from '../state/useReducedMotion';
+import GatewayUnlock from './GatewayUnlock';
+import { useGateway } from '../state/GatewayContext';
 
 export default function Initialization({ openSettings }: { openSettings: () => void }) {
   const { ready, inspect, header, busy, open, execute, setMessage, error: vaultError, message } = useVault();
@@ -17,6 +19,7 @@ export default function Initialization({ openSettings }: { openSettings: () => v
   const [particlePattern, setParticlePattern] = useState(0);
   const account = useCurrentAccount();
   const { config } = useConfig();
+  const gateway = useGateway();
   const configured = configSchema.safeParse(config).success;
   const connected = !!account?.chains.includes('sui:mainnet');
   const [method, setMethod] = useState<'passphrase' | 'wallet'>('passphrase');
@@ -53,8 +56,9 @@ export default function Initialization({ openSettings }: { openSettings: () => v
       {vaultError && <div role="alert" className="notice error">{vaultError}</div>}
       {message && <div className="notice feedback-notice"><span role="status">{message}</span><button className="text-button" onClick={() => setMessage('')}>Dismiss</button></div>}
       <ol className="setup-steps">
-        <li className={configured ? 'complete' : 'current'}><span className="step-number">{configured ? <Check size={15} /> : '01'}</span><div><h3>Configure your gateways</h3><p>Tatum API and your Walrus Memory account.</p>
-          <button className={configured ? 'text-button' : 'primary hero-action'} onClick={openSettings}>{configured ? 'Edit gateway configuration' : 'Configure gateways'}<ArrowUpRight size={16} /></button></div></li>
+        <li className={configured ? 'complete' : 'current'}><span className="step-number">{configured ? <Check size={15} /> : '01'}</span><div><h3>{!configured && (gateway.savedAnyWallet || gateway.savedPassphrase) ? 'Unlock your saved gateways' : 'Configure your gateways'}</h3><p>Tatum API and your Walrus Memory account.</p>
+          <button className={configured ? 'text-button' : 'primary hero-action'} onClick={openSettings}>{configured ? 'Edit gateway configuration' : 'Configure gateways'}<ArrowUpRight size={16} /></button>
+          <GatewayUnlock /></div></li>
         <li className={connected ? 'complete' : configured ? 'current' : ''}><span className="step-number">{connected ? <Check size={15} /> : '02'}</span><div><h3>Connect your Sui wallet</h3><p>The wallet that owns your memory account.</p><ConnectButton /></div></li>
         <li className={ready ? 'current' : ''}><span className="step-number">03</span><div><h3>Open your private vault</h3><p>{ready ? 'Inspect storage to unlock or initialize your vault.' : 'Your unlock options appear after connection.'}</p>
           {!ready && <span className="small muted inline-icon"><LockKeyhole size={12} />Awaiting gateway and wallet setup</span>}

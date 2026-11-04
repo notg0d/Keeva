@@ -9,6 +9,7 @@ import './styles.css';
 import App from './App';
 import { ConfigProvider, useConfig } from './state/ConfigContext';
 import { VaultProvider } from './state/VaultContext';
+import { GatewayProvider } from './state/GatewayContext';
 import { TatumSuiClient } from './services/tatumSuiClient';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -31,7 +32,7 @@ function Providers() {
   const networks = useMemo(() => ({ mainnet: new TatumSuiClient(config.tatumApiKey, config.tatumRpcUrl, config.tatumApiType).sdk }),
     [config.tatumApiKey, config.tatumRpcUrl, config.tatumApiType]);
   return <SuiClientProvider networks={networks} network="mainnet"><WalletProvider autoConnect theme={walletTheme} storageKey="keeva.wallet">
-    <VaultProvider><App /></VaultProvider>
+    <GatewayProvider><VaultProvider><App /></VaultProvider></GatewayProvider>
   </WalletProvider></SuiClientProvider>;
 }
 

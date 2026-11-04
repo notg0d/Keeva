@@ -7,6 +7,7 @@ import { DEFAULT_MEMWAL_SERVER_URL } from './gatewayRoutes';
 export const MAINNET_CHAIN_ID = '35834a8a';
 const SETTINGS_KEY = 'keeva.settings.v1';
 const SECRETS_KEY = 'keeva.gateway.v1';
+export const WALLET_GATEWAY_PREFIX = 'keeva.gateway.wallet.v1:';
 const objectId = z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'Use a full 32-byte Sui object ID.');
 const publicSchema = z.object({
   tatumApiType: z.enum(['graphql', 'json-rpc']).optional(),
@@ -36,6 +37,13 @@ export const configSchema = publicSchema.extend({
   auditEventTypes: z.array(z.string().regex(/^0x[0-9a-fA-F]{64}::[A-Za-z_][\w]*::[A-Za-z_][\w]*$/)),
 }).strict();
 export type VaultConfig = z.infer<typeof configSchema>;
+export const gatewaySettingsSchema = configSchema.extend({
+  tatumRpcUrl: configSchema.shape.tatumRpcUrl.or(z.literal('')),
+  tatumApiKey: configSchema.shape.tatumApiKey.or(z.literal('')),
+  memwalPrivateKey: configSchema.shape.memwalPrivateKey.or(z.literal('')),
+  memwalAccountId: configSchema.shape.memwalAccountId.or(z.literal('')),
+  memwalAgentId: configSchema.shape.memwalAgentId.or(z.literal('')),
+});
 
 export function loadVaultConfig(): VaultConfig {
   const env = import.meta.env;
@@ -61,9 +69,25 @@ export function hasProtectedGateway(): boolean {
   try { return localStorage.getItem(SECRETS_KEY) !== null; } catch { return false; }
 }
 
-export async function saveVaultConfig(config: VaultConfig, devicePassphrase?: string): Promise<VaultConfig> {
-  const parsed = configSchema.parse(config);
-  const { tatumApiKey, memwalPrivateKey, ...publicSettings } = parsed;
+export function persistVaultConfig(config: VaultConfig, protectedEntry?: { key: string; value: string }): void {
+  const { tatumApiKey: _apiKey, memwalPrivateKey: _privateKey, ...publicSettings } = gatewaySettingsSchema.parse(config);
+  let previousSettings: string | null | undefined;
+  try {
+    previousSettings = localStorage.getItem(SETTINGS_KEY);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(publicSettings));
+    if (protectedEntry) localStorage.setItem(protectedEntry.key, protectedEntry.value);
+  } catch (cause) {
+    try {
+      if (previousSettings === null) localStorage.removeItem(SETTINGS_KEY);
+      else if (previousSettings !== undefined) localStorage.setItem(SETTINGS_KEY, previousSettings);
+    } catch { /* Keep the original storage failure. */ }
+    throw new VaultError('LOCAL_STORAGE', 'Browser settings could not be saved. Enable site storage and retry.', { cause });
+  }
+}
+
+export async function saveVaultConfig(config: VaultConfig, devicePassphrase?: string, assertActive: () => void = () => {}): Promise<VaultConfig> {
+  const parsed = gatewaySettingsSchema.parse(config);
+  const { tatumApiKey, memwalPrivateKey } = parsed;
   let protectedSecrets: string | undefined;
   if (devicePassphrase) {
     if (devicePassphrase.length < 14) throw new VaultError('DEVICE_PASSPHRASE', 'Use at least 14 characters for device protection.');
@@ -74,13 +98,8 @@ export async function saveVaultConfig(config: VaultConfig, devicePassphrase?: st
       protectedSecrets = JSON.stringify({ kdf, payload: await encryptJson(key, { tatumApiKey, memwalPrivateKey }, 'keeva:gateway:v1') });
     } finally { bytes.fill(0); }
   }
-  try {
-    if (protectedSecrets) localStorage.setItem(SECRETS_KEY, protectedSecrets);
-    else localStorage.removeItem(SECRETS_KEY);
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(publicSettings));
-  } catch (cause) {
-    throw new VaultError('LOCAL_STORAGE', 'Browser settings could not be saved. Enable site storage and retry.', { cause });
-  }
+  assertActive();
+  persistVaultConfig(parsed, protectedSecrets ? { key: SECRETS_KEY, value: protectedSecrets } : undefined);
   return parsed;
 }
 
@@ -89,11 +108,23 @@ export async function unlockGateway(devicePassphrase: string): Promise<Pick<Vaul
   const bytes = utf8.encode(devicePassphrase);
   try {
     const key = await deriveMasterKey(bytes, envelope.kdf);
-    return configSchema.pick({ tatumApiKey: true, memwalPrivateKey: true }).parse(await decryptJson(key, envelope.payload, 'keeva:gateway:v1'));
+    return gatewaySettingsSchema.pick({ tatumApiKey: true, memwalPrivateKey: true }).parse(await decryptJson(key, envelope.payload, 'keeva:gateway:v1'));
   } finally { bytes.fill(0); }
 }
 
 export function clearLocalConfiguration(): void {
   localStorage.removeItem(SETTINGS_KEY);
   localStorage.removeItem(SECRETS_KEY);
+  const walletKeys: string[] = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(WALLET_GATEWAY_PREFIX)) walletKeys.push(key);
+  }
+  for (const key of walletKeys) localStorage.removeItem(key);
+}
+
+export function forgetProtectedGateway(): void { localStorage.removeItem(SECRETS_KEY); }
+
+export function isConfigurationStorageKey(key: string | null): boolean {
+  return key === null || key === SETTINGS_KEY || key === SECRETS_KEY || key.startsWith(WALLET_GATEWAY_PREFIX);
 }

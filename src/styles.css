@@ -296,6 +296,24 @@
   .drawer-heading h2 { margin-top: 5px; }
   .drawer-heading .eyebrow { font-size: .55rem; }
   .settings-dialog > p, .settings-dialog form p { font-size: .74rem; }
+  .settings-field { margin: 1.35rem 0; }
+  .settings-field > label { margin: 0 0 .55rem; }
+  .settings-dialog .settings-help { margin: .5rem 0 0; }
+  .settings-resource-links { display: flex; flex-wrap: wrap; gap: .15rem 1rem; margin-top: .25rem; }
+  .settings-resource-links a { display: inline-flex; align-items: center; gap: .25rem; min-height: 28px; font-size: .7rem; text-decoration: underline; text-decoration-color: #8da680; }
+  .settings-resource-links a:hover { color: #203e2d; text-decoration-color: currentColor; }
+  .settings-resource-links svg { flex-shrink: 0; }
+  .gateway-unlock { margin: 1rem 0; padding: 1rem; border: 1px solid #c6d3be; border-radius: 8px; background: #e8eee180; }
+  .gateway-unlock > p:first-child { display: flex; align-items: flex-start; gap: .5rem; }
+  .gateway-unlock > p:first-child svg { flex-shrink: 0; margin-top: .2rem; }
+  .gateway-unlock p { margin: 0 0 .75rem; overflow-wrap: anywhere; }
+  .gateway-unlock p:last-child { margin-bottom: 0; }
+  .gateway-unlock button { max-width: 100%; white-space: normal; text-align: left; }
+  .gateway-passphrase { margin-top: .75rem; }
+  .gateway-passphrase label { margin: 0 0 .4rem; }
+  .gateway-passphrase button { margin-top: .75rem; }
+  .gateway-forget { gap: .5rem; }
+  .gateway-wallet-connect [role=group] { display: flex; flex-wrap: wrap; gap: .5rem; }
   .form-section-label { display: flex; gap: 10px; border-top: 1px solid var(--line); padding-top: 24px; margin-top: 28px; color: var(--muted); font-size: .62rem; font-family: 'Geist Mono Variable', monospace; }
   .form-section-label span { font-family: 'DM Sans Variable', sans-serif; color: #40573a; font-size: .74rem; }
 
