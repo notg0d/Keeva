@@ -1,16 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { ConnectButton, useCurrentAccount } from '@mysten/dapp-kit';
-import { ArrowDown, ArrowRight, ArrowUpRight, Check, Database, KeyRound, LoaderCircle, LockKeyhole, ShieldCheck } from 'lucide-react';
+import { ArrowDown, ArrowRight, ArrowUpRight, Check, Database, KeyRound, LoaderCircle, LockKeyhole, Pause, Play, ShieldCheck, Shuffle } from 'lucide-react';
 import { useVault } from '../state/VaultContext';
 import { useConfig } from '../state/ConfigContext';
 import { configSchema } from '../config/vaultConfig';
 import NetworkCards from './NetworkCards';
 import Brand from './Brand';
 import HeroTrail from './HeroTrail';
+import { useReducedMotion } from '../state/useReducedMotion';
 
 export default function Initialization({ openSettings }: { openSettings: () => void }) {
   const { ready, inspect, header, busy, open, execute, setMessage, error: vaultError, message } = useVault();
   const hero = useRef<HTMLElement>(null);
+  const reduce = useReducedMotion();
+  const [particlesPaused, setParticlesPaused] = useState(false);
+  const [particlePattern, setParticlePattern] = useState(0);
   const account = useCurrentAccount();
   const { config } = useConfig();
   const configured = configSchema.safeParse(config).success;
@@ -24,7 +28,7 @@ export default function Initialization({ openSettings }: { openSettings: () => v
     <a className="skip-link" href="#vault-access">Skip to vault login</a>
     <main className="login-page" id="main-content" tabIndex={-1}>
     <section className="login-hero" ref={hero} aria-labelledby="hero-title">
-      <HeroTrail hero={hero} />
+      <HeroTrail hero={hero} paused={particlesPaused} pattern={particlePattern} />
       <header className="hero-header"><Brand /><span className="hero-header-note eyebrow">A LITTLE LESS WORRY. A LOT MORE YOURS.</span>
         <nav aria-label="Welcome navigation"><a href="#privacy" className="hero-nav-link">The Keeva way<ArrowUpRight size={14} /></a><a className="hero-entry" href="#vault-access">Open vault<ArrowUpRight size={17} /></a></nav>
       </header>
@@ -88,7 +92,12 @@ export default function Initialization({ openSettings }: { openSettings: () => v
     <div className="setup-caption"><LockKeyhole size={12} /><span>YOUR MASTER KEY STAYS WITH YOU</span></div>
     </section>
     </div>
-    <div className="hero-bottom"><span className="eyebrow">PASSWORDS / API KEYS / PRIVATE NOTES</span><a href="#privacy">A little peace of mind<ArrowDown size={16} /></a><span className="eyebrow">BUILT ON SUI. STORED ON WALRUS.</span></div>
+    <div className="hero-bottom"><span className="eyebrow">PASSWORDS / API KEYS / PRIVATE NOTES</span><a href="#privacy">A little peace of mind<ArrowDown size={16} /></a>
+      {!reduce && <div className="hero-field-controls" role="group" aria-label="Particle animation">
+        <button type="button" onClick={() => { setParticlesPaused(false); setParticlePattern((current) => current + 1); }} title="Reshape the vibrating particle field"><Shuffle size={13} />Shift the pattern</button>
+        <button type="button" className="field-pause" onClick={() => setParticlesPaused((current) => !current)} aria-label={particlesPaused ? 'Resume particle animation' : 'Pause particle animation'} title={particlesPaused ? 'Resume animation' : 'Pause animation'}>{particlesPaused ? <Play size={13} /> : <Pause size={13} />}</button>
+      </div>}
+    </div>
     </section>
     <section className="privacy-section" id="privacy" aria-labelledby="privacy-title">
       <div className="privacy-heading"><span className="eyebrow">01 / THE KEEVA WAY</span><h2 id="privacy-title">Keep the keys.<br /><span>Lose the noise.</span></h2><p>Your private life deserves a private space. Keeva brings your essentials together, with encryption that starts right where you are.</p></div>

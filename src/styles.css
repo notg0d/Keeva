@@ -74,7 +74,17 @@
 
   .login-page { padding: 0; margin: 0; max-width: none; }
   .login-hero { position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: 100svh; padding: 0 clamp(24px, 4.4vw, 88px); color: #edf5e6; background: var(--forest); overflow: clip; }
-  .hero-trail { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+  .hero-particles { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; contain: strict; }
+  .hero-particles canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
+  .hero-field { opacity: 0; mask-image: radial-gradient(ellipse at 30% 43%, #0004 0%, #0008 35%, #000d 75%); }
+  .hero-trail { opacity: .82; }
+  .hero-field-controls { display: flex; align-items: center; gap: 8px; }
+  .hero-field-controls button { color: #bacdae; background: #0e1d1770; border: 1px solid #a6c28a35; min-height: 34px; padding: 7px 12px; border-radius: 50px; font-size: .62rem; font-weight: 400; gap: 8px; }
+  .hero-field-controls button:hover { color: #e3f5d4; background: #d6f5bf12; border-color: #a6c28a80; }
+  .hero-field-controls .field-pause { padding: 8px; width: 34px; }
+  @media (max-width: 760px) { .hero-field-controls { flex-basis: 100%; justify-content: flex-end; }.hero-field-controls button { font-size: .58rem; }.hero-field { mask-image: linear-gradient(#000a, #0006 45%, #0009); } }
+  @media (min-width: 541px) and (max-width: 760px) { .hero-story .logo-fan { flex-basis: 210px; margin-right: 0; }.hero-story .hero-description { flex: 1; min-width: 0; } }
+  @media (prefers-reduced-motion: reduce) { .hero-particles, .hero-field-controls { display: none; } }
   .hero-header { display: flex; align-items: center; justify-content: space-between; min-height: 104px; gap: 24px; width: 100%; max-width: 1600px; margin: 0 auto; }
   .hero-header .brand img { width: 42px; height: 42px; mix-blend-mode: lighten; }
   .hero-header .brand { color: #e5f5d9; }
