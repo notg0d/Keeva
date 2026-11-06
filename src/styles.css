@@ -313,6 +313,16 @@
   .table-wrap td { min-width: 95px; }
   .audit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 24px; }
   .audit-grid p { font-size: .76rem; }
+  .breach-scan { margin-top: 28px; }
+  .breach-scan > .card-topline { flex-wrap: wrap; }
+  .breach-privacy { display: flex; align-items: flex-start; gap: 12px; }
+  .breach-privacy > svg { flex-shrink: 0; margin-top: 3px; }
+  .breach-privacy strong { font-size: .8rem; font-weight: 550; }
+  .breach-privacy p { margin-bottom: 0; }
+  .breach-scan .notice { margin-top: 16px; }
+  .breach-scan .table-wrap { margin-bottom: 16px; }
+  .breach-occurrences { display: block; margin-top: 5px; }
+  .breach-disclaimer { padding-top: 16px; margin: 18px 0 0; border-top: 1px solid var(--line); }
   .audit-list { list-style: none; padding: 0; max-height: 30rem; overflow: auto; }
   .audit-list li { display: flex; flex-direction: column; gap: .35rem; padding: 16px 0 16px 16px; border-left: 1px solid #bfd0b1; margin-left: 5px; position: relative; font-size: .73rem; }
   .audit-list li::before { content: ''; position: absolute; top: 22px; left: -3px; width: 5px; height: 5px; border-radius: 50%; background: #70955a; }

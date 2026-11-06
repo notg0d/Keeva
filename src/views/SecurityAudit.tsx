@@ -5,6 +5,7 @@ import type { AuditTransactionVerification } from '../services/tatumSuiClient';
 import { useVault } from '../state/VaultContext';
 import type { Credential } from '../types/vault';
 import { errorMessage } from '../lib/errors';
+import PasswordBreachScan from '../components/PasswordBreachScan';
 
 export default function SecurityAudit({ onEdit }: { onEdit: (credential: Credential) => void }) {
   const { snapshot, execute, busy } = useVault();
@@ -19,7 +20,7 @@ export default function SecurityAudit({ onEdit }: { onEdit: (credential: Credent
     return () => { active = false; };
   }, [snapshot]);
   return <section><div className="page-heading"><div><span className="eyebrow">A CLEARER PICTURE OF YOUR SECURITY</span><h1>Security audit</h1>
-    <p className="muted">Local insights. Stronger credentials. A little less to worry about.</p></div><span className="badge"><Fingerprint size={14} />Analyzed on-device</span></div>
+    <p className="muted">Local insights. Optional breach checks. Stronger credentials.</p></div><span className="badge"><Fingerprint size={14} />Local health analysis</span></div>
     <p className="muted small">Reuse hashes and password-resistance analysis are calculated locally. Rotation is due after 90 days.</p>
     {error && <p className="error" role="alert">{error}</p>}
     {matrix === null ? <p className="loading-state" role="status"><LoaderCircle size={17} className="spin" />Analyzing decrypted vault records…</p> : <>
@@ -33,6 +34,7 @@ export default function SecurityAudit({ onEdit }: { onEdit: (credential: Credent
           <td><button disabled={snapshot!.conflicts.includes(item.id)} onClick={() => onEdit(snapshot!.credentials.find((credential) => credential.revision === item.revision)!)}>Review &amp; rotate</button></td></tr>)}</tbody></table>
         {!matrix.length && <div className="empty compact-empty"><ShieldCheck size={24} /><h2>Room for stronger habits</h2><p className="muted">No password-bearing credentials are stored.</p></div>}</div>
     </>}
+    <PasswordBreachScan credentials={snapshot!.credentials} conflicts={snapshot!.conflicts} disabled={busy} onEdit={onEdit} />
     <div className="audit-grid"><section className="panel"><div className="card-topline"><span className="icon-tile network"><ShieldCheck size={18} /></span><span className="eyebrow">ONCHAIN VERIFICATION</span></div><h2>Verify a transaction</h2>
       <p className="muted">Verifies transaction digest, sender and sponsor signatures. Checkpoint inclusion and event contents are attested by the configured RPC; validator certificates are not verified here.</p>
       <form onSubmit={(event) => { event.preventDefault(); setVerification(null); void execute(async (service) => {

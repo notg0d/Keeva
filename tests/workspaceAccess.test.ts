@@ -19,6 +19,7 @@ vi.mock('../src/views/VaultInventory', () => ({ default: () => null }));
 import App from '../src/App';
 import PasswordOptions from '../src/components/PasswordOptions';
 import { defaultPasswordRules } from '../src/crypto/passwordGenerator';
+import PasswordBreachScan from '../src/components/PasswordBreachScan';
 
 afterEach(() => { vault.snapshot = null; });
 
@@ -28,6 +29,8 @@ describe('password generator access', () => {
     expect(markup).toContain('Vault unlock required');
     expect(markup).not.toContain('Password generator');
     expect(markup).not.toContain('Add credential');
+    expect(markup).not.toContain('Security audit');
+    expect(markup).not.toContain('Scan passwords');
     expect(markup).not.toContain('Vault navigation');
   });
 
@@ -38,6 +41,7 @@ describe('password generator access', () => {
     expect(markup).toContain('Vault navigation');
     expect(markup).toContain('Password generator');
     expect(markup).toContain('Add credential');
+    expect(markup).toContain('Security audit');
     expect(markup).not.toContain('Vault unlock required');
     vault.snapshot = null;
     expect(renderToStaticMarkup(createElement(App))).not.toContain('Password generator');
@@ -51,5 +55,23 @@ describe('password generator access', () => {
     expect(markup.match(/disabled=""/g)).toHaveLength(1);
     expect(markup).toContain('Adjust password length');
     expect(markup).toContain('Exclude look-alike characters');
+  });
+});
+
+describe('opt-in breach scan interface', () => {
+  it('explains the privacy boundary and does not scan on render', () => {
+    const fetcher = vi.spyOn(globalThis, 'fetch');
+    try {
+      const markup = renderToStaticMarkup(createElement(PasswordBreachScan, {
+        credentials: [], conflicts: [], disabled: false, onEdit: () => {},
+      }));
+      expect(markup).toContain('first five characters');
+      expect(markup).toContain('IP address and request timing');
+      expect(markup).toContain('API keys and secure notes are excluded');
+      expect(markup).toContain('not proof of safety');
+      expect(markup).toContain('Add a login credential');
+      expect(markup).toMatch(/disabled=""[^>]*><svg[^]*?Scan passwords/);
+      expect(fetcher).not.toHaveBeenCalled();
+    } finally { fetcher.mockRestore(); }
   });
 });
