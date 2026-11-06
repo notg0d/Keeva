@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import { ArrowLeft, ArrowRight, Eye, EyeOff, KeyRound, LoaderCircle, LockKeyhole, RefreshCw, ShieldCheck } from 'lucide-react';
-import { generatePassword, type PasswordRules } from '../crypto/passwordGenerator';
+import { defaultPasswordRules, generatePassword, type GeneratedPassword, type PasswordRules } from '../crypto/passwordGenerator';
+import PasswordOptions from '../components/PasswordOptions';
 import { errorMessage } from '../lib/errors';
 import { passwordStrength } from '../services/securityAuditService';
 import { useVault } from '../state/VaultContext';
 import type { Credential, CredentialInput } from '../types/vault';
 
-export default function CredentialComposer({ credential, onDone }: { credential?: Credential; onDone: () => void }) {
+export default function CredentialComposer({ credential, generated, onDone }: { credential?: Credential; generated?: GeneratedPassword; onDone: () => void }) {
   const { execute, busy, setMessage } = useVault();
   const [form, setForm] = useState<CredentialInput>({ kind: credential?.kind ?? 'login', siteName: credential?.siteName ?? '',
-    username: credential?.username ?? '', password: credential?.password ?? '', notes: credential?.notes ?? '',
+    username: credential?.username ?? '', password: credential?.password ?? generated?.password ?? '', notes: credential?.notes ?? '',
     category: credential?.category ?? '', lastRotated: credential?.lastRotated ?? new Date().toISOString() });
-  const [rules, setRules] = useState<PasswordRules>({ length: 24, lowercase: true, uppercase: true, digits: true, symbols: true });
+  const [rules, setRules] = useState<PasswordRules>({ ...defaultPasswordRules });
   const [show, setShow] = useState(false);
-  const [entropy, setEntropy] = useState<number | null>(null);
+  const [entropy, setEntropy] = useState<number | null>(credential ? null : generated?.entropyBits ?? null);
   const [error, setError] = useState('');
   const strength = passwordStrength(form.password, [form.siteName, form.username]);
   const update = <K extends keyof CredentialInput>(key: K, value: CredentialInput[K]) => setForm((previous) => ({ ...previous, [key]: value }));
@@ -42,9 +43,7 @@ export default function CredentialComposer({ credential, onDone }: { credential?
           <p className={`small ${!form.password ? 'muted' : strength.weak ? 'warning' : 'secure'}`}>{!form.password ? 'Enter a secret to calculate its resistance.' : `Resistance: ${['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong'][strength.score]}`}
             {form.password && entropy !== null && ` · ${Math.floor(entropy)} bits of generated entropy`}</p>
           <details className="inset"><summary>Cryptographic password generator</summary>
-            <label>Length<input type="number" min={8} max={128} value={rules.length} onChange={(event) => setRules({ ...rules, length: Number(event.target.value) })} /></label>
-            <div className="actions">{(['lowercase', 'uppercase', 'digits', 'symbols'] as const).map((name) =>
-              <label className="check-label" key={name}><input type="checkbox" checked={rules[name]} onChange={(event) => setRules({ ...rules, [name]: event.target.checked })} />{name}</label>)}</div>
+            <PasswordOptions rules={rules} onChange={setRules} />
             <button type="button" onClick={() => { try {
               const generated = generatePassword(rules); setEntropy(generated.entropyBits);
               setForm({ ...form, password: generated.password, lastRotated: new Date().toISOString() }); setError('');

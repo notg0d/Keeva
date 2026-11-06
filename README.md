@@ -72,6 +72,7 @@ The backend allows read-only operations, bounds request/response sizes, rejects 
 - `src/services/securityAuditService.ts`: local reuse, resistance, and rotation analysis.
 - `src/state/`: wallet-bound session lifecycle and ephemeral decrypted state.
 - `src/views/`: inventory, item composer, security audit, and blob explorer.
+- `src/views/PasswordGenerator.tsx`: unlocked-vault password tool with 8–128-character lengths, character-type controls, optional look-alike exclusion, constrained entropy, and protected clipboard copying. Uses Web Crypto rejection sampling; generated passwords stay in memory and can prefill a new credential without saving it automatically. The credential form shares the same options and generator.
 
 ### Interface and motion
 

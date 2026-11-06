@@ -7,8 +7,9 @@ import { useVault } from '../state/VaultContext';
 import SystemBar from './SystemBar';
 import Brand from './Brand';
 
-export type View = 'inventory' | 'composer' | 'audit' | 'storage';
+export type View = 'inventory' | 'composer' | 'generator' | 'audit' | 'storage';
 const views = [{ id: 'inventory', label: 'Vault overview' }, { id: 'composer', label: 'Add credential' },
+  { id: 'generator', label: 'Password generator' },
   { id: 'audit', label: 'Security audit' }, { id: 'storage', label: 'Walrus storage' }] as const;
 
 export default function WorkspaceShell({ children, openSettings, view, onChange }: {
